@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>فروشگاه رویال تک نست | تم‌های PS4</title>
+    <meta name="description" content="بهترین تم‌های PS4 برای کنسول‌های کپی‌خور" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    
+    <!-- Header -->
+    <header class="header">
+      <div class="container header-inner">
+        <a href="#" class="brand">
+          <div class="logo-icon">
+            <i data-lucide="gamepad-2"></i>
+          </div>
+          <div class="brand-text">
+            <h1>فروشگاه رویال تک نست</h1>
+            <p>تم‌های PS4 برای کپی‌خور</p>
+          </div>
+        </a>
+        
+        <div class="header-controls">
+          <div class="search-wrapper">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="search-input" class="search-input" placeholder="جستجو در محصولات..." />
+          </div>
+          <button id="admin-btn" class="btn btn-icon" title="پنل مدیریت">
+            <i data-lucide="user-cog"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+      <div id="product-grid" class="product-grid">
+        <!-- Products injected here -->
+      </div>
+      
+      <div id="loading-sentinel" class="loading-spinner"></div>
+      
+      <div id="empty-state" class="hidden empty-state">
+        <i data-lucide="ghost" class="empty-icon"></i>
+        <h3>محصولی یافت نشد</h3>
+      </div>
+    </main>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel product-modal-panel">
+        <button class="modal-close"><i data-lucide="x"></i></button>
+        
+        <div class="pm-image">
+          <img id="pm-img" src="" alt="Product Preview" />
+        </div>
+        
+        <div class="pm-details">
+          <h2 id="pm-title" class="pm-title"></h2>
+          
+          <div class="pm-sku-box" onclick="window.copyModalSku()">
+            <span class="pm-sku-label">شناسه محصول (جهت سفارش):</span>
+            <div class="pm-sku-code">
+              <span id="pm-sku"></span>
+              <i data-lucide="copy" size="16"></i>
+            </div>
+          </div>
+          
+          <a id="pm-download" href="#" target="_blank" class="btn btn-primary btn-glow" style="width: 100%; padding: 1rem; font-size: 1.1rem;">
+            <i data-lucide="download-cloud"></i>
+            دانلود فایل اصلی
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel login-panel">
+        <button class="modal-close"><i data-lucide="x"></i></button>
+        
+        <div class="login-icon">
+          <i data-lucide="shield-check" size="40"></i>
+        </div>
+        <h2 style="margin-bottom: 2rem;">ورود به پنل مدیریت</h2>
+        
+        <form id="login-form">
+          <div class="form-input-group">
+            <i data-lucide="user"></i>
+            <input type="text" id="username" class="form-input" placeholder="نام کاربری" required />
+          </div>
+          <div class="form-input-group">
+            <i data-lucide="lock"></i>
+            <input type="password" id="password" class="form-input" placeholder="رمز عبور" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-glow" style="width: 100%;">ورود امن</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="admin-panel" class="admin-overlay hidden">
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-top">
+          <div class="admin-logo">
+            <i data-lucide="layout-dashboard"></i>
+            <span>پنل مدیریت</span>
+          </div>
+          
+          <!-- Mobile Logout (Visible only on mobile) -->
+          <button class="btn btn-icon mobile-logout" onclick="document.getElementById('logout-btn').click()">
+             <i data-lucide="log-out" class="text-danger"></i>
+          </button>
+        </div>
+        
+        <div class="admin-menu">
+          <a href="#" class="menu-item active">
+            <i data-lucide="box"></i>
+            محصولات
+          </a>
+          <button id="logout-btn" class="menu-item logout">
+            <i data-lucide="log-out"></i>
+            خروج از حساب
+          </button>
+        </div>
+      </aside>
+
+      <main class="admin-content" id="admin-content-scroll">
+        <header class="admin-header">
+          <div class="admin-header-title">
+            <h2>مدیریت محصولات</h2>
+          </div>
+          
+          <div class="admin-actions">
+            <!-- Admin Search -->
+            <div class="search-wrapper admin-search">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="admin-search-input" class="search-input" placeholder="جستجو با نام یا شناسه..." />
+            </div>
+
+            <button id="bulk-delete-btn" class="btn btn-danger hidden">
+              <i data-lucide="trash-2"></i>
+              حذف (<span id="selected-count">0</span>)
+            </button>
+            <button id="add-product-btn" class="btn btn-primary btn-glow">
+              <i data-lucide="plus"></i>
+              افزودن
+            </button>
+          </div>
+        </header>
+
+        <!-- Add/Edit Form -->
+        <div id="product-form-container" class="form-card hidden">
+          <div class="form-header">
+            <h3 id="form-title">افزودن محصول جدید</h3>
+            <button id="cancel-form-btn" class="btn btn-ghost"><i data-lucide="x"></i></button>
+          </div>
+          <form id="product-form">
+            <div class="form-body">
+              <div class="form-input-group">
+                <label style="display:block; margin-bottom:0.5rem; font-weight:600;">نام محصول</label>
+                <input type="text" id="prod-name" class="form-input" placeholder="مثلاً: تم لست آف آس 2" required />
+              </div>
+              
+              <div class="upload-zone">
+                <input type="file" id="prod-file" accept="image/*" />
+                <div style="pointer-events: none;">
+                  <i data-lucide="image-plus" size="48" style="color: var(--primary); opacity: 0.8; margin-bottom: 1rem;"></i>
+                  <p style="font-weight: 600;">برای آپلود عکس کلیک کنید</p>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">یا عکس را اینجا رها کنید</p>
+                </div>
+                <img id="file-preview" class="upload-preview hidden" />
+              </div>
+              
+              <div style="margin-top: 2rem; text-align: left;">
+                <button type="submit" class="btn btn-primary btn-glow" id="save-btn" style="min-width: 120px;">
+                  <span class="btn-text">ذخیره</span>
+                  <span class="loader hidden">...</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="50"><input type="checkbox" id="select-all" /></th>
+                <th width="80">تصویر</th>
+                <th>نام محصول</th>
+                <th>شناسه سیستم (ID)</th>
+                <th width="120">عملیات</th>
+              </tr>
+            </thead>
+            <tbody id="admin-table-body">
+              <!-- Rows -->
+            </tbody>
+          </table>
+          
+          <!-- Admin Loading Sentinel -->
+          <div id="admin-sentinel" class="loading-spinner" style="margin: 2rem auto;"></div>
+          <div id="admin-empty" class="hidden" style="text-align:center; padding: 2rem; color: var(--text-muted);">
+            موردی یافت نشد
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+      <i data-lucide="check-circle" class="text-success"></i>
+      <span id="toast-msg">عملیات موفقیت آمیز بود</span>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
