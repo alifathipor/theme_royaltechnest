@@ -2,9 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import { createIcons, icons } from 'lucide';
 
 // --- Config ---
-const SUPABASE_URL = 'https://uydazgfelieycdddidvd.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5ZGF6Z2ZlbGlleWNkZGRpZHZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjM2MjUsImV4cCI6MjA4MDQ5OTYyNX0.lBYVjDm61wPrR9FG1CZIE-kYYK2mkWbEOA9oIGSk0ds';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://uydazgfelieycdddidvd.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5ZGF6Z2ZlbGlleWNkZGRpZHZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjM2MjUsImV4cCI6MjA4MDQ5OTYyNX0.lBYVjDm61wPrR9FG1CZIE-kYYK2mkWbEOA9oIGSk0ds';
 const STORAGE_BUCKET = 'product-images';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Supabase credentials missing! Check your .env file.');
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -42,12 +46,16 @@ const els = {
   // Modals
   productModal: $('product-modal'),
   pmImg: $('pm-img'),
+  pmVideoContainer: $('pm-video-container'),
+  pmVideo: $('pm-video'),
   pmTitle: $('pm-title'),
   pmSku: $('pm-sku'),
   pmDownload: $('pm-download'),
+  pmDownloadVideo: $('pm-download-video'),
   
   loginModal: $('login-modal'),
   loginForm: $('login-form'),
+  loginBtn: $('login-submit-btn'),
   
   // Admin
   adminPanel: $('admin-panel'),
@@ -61,11 +69,19 @@ const els = {
   form: $('product-form'),
   prodName: $('prod-name'),
   prodFile: $('prod-file'),
+  prodVideo: $('prod-video'),
   filePreview: $('file-preview'),
+  videoPreview: $('video-preview'),
   saveBtn: $('save-btn'),
   
   toast: $('toast'),
-  toastMsg: $('toast-msg')
+  toastMsg: $('toast-msg'),
+  
+  // Status
+  statusDate: $('status-date'),
+  statusDateMobile: $('status-date-mobile'),
+  updateStatusBtn: $('update-status-btn'),
+  updateStatusBtnMobile: $('update-status-btn-mobile')
 };
 
 // --- Init ---
@@ -96,31 +112,58 @@ function setupEvents() {
   });
   document.addEventListener('keydown', e => e.key === 'Escape' && closeModals());
 
-  // Login
+  // Login Trigger
   $('admin-btn').addEventListener('click', () => {
     if (state.isAdmin) openAdmin();
     else els.loginModal.classList.remove('hidden');
   });
 
-  els.loginForm.addEventListener('submit', (e) => {
+  // Login Submit
+  els.loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const u = $('username').value;
-    const p = $('password').value;
-    if (u === 'admin' && p === 'Aa@123456') {
-      state.isAdmin = true;
-      closeModals();
-      openAdmin();
-      showToast('خوش آمدید مدیر عزیز');
-    } else {
-      showToast('نام کاربری یا رمز عبور اشتباه است');
+    const u = $('username').value.trim();
+    const p = $('password').value.trim();
+    
+    if (!u || !p) return showToast('لطفاً نام کاربری و رمز عبور را وارد کنید');
+
+    const btn = els.loginBtn || els.loginForm.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'در حال بررسی...';
+
+    try {
+      const { data, error } = await supabase
+        .from('app_admins')
+        .select('*')
+        .eq('username', u)
+        .eq('password', p)
+        .single();
+
+      if (error || !data) {
+        showToast('نام کاربری یا رمز عبور اشتباه است');
+      } else {
+        state.isAdmin = true;
+        closeModals();
+        openAdmin();
+        showToast(`خوش آمدید ${data.username}`);
+        $('username').value = '';
+        $('password').value = '';
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      showToast('خطا در ارتباط با سرور');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
-  // Admin
+  // Admin Logout
   $('logout-btn').addEventListener('click', () => {
     state.isAdmin = false;
     els.adminPanel.classList.add('hidden');
     document.body.style.overflow = '';
+    showToast('خروج موفقیت آمیز بود');
   });
 
   // Admin Search
@@ -144,12 +187,21 @@ function setupEvents() {
     els.formContainer.classList.add('hidden');
   });
 
-  // File Preview
+  // File Preview (Image)
   els.prodFile.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
       els.filePreview.src = URL.createObjectURL(file);
       els.filePreview.classList.remove('hidden');
+    }
+  });
+
+  // File Preview (Video)
+  els.prodVideo.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      els.videoPreview.src = URL.createObjectURL(file);
+      els.videoPreview.classList.remove('hidden');
     }
   });
 
@@ -164,6 +216,117 @@ function setupEvents() {
   });
   
   $('bulk-delete-btn').addEventListener('click', deleteBulk);
+  
+  // Update Status
+  els.updateStatusBtn.addEventListener('click', updateSystemStatus);
+  els.updateStatusBtnMobile.addEventListener('click', updateSystemStatus);
+}
+
+// --- Helper: Normalize Persian/Arabic Digits ---
+function toEnglishDigits(str) {
+  if (!str) return str;
+  return str.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+            .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+}
+
+// --- Helper: Build Query for Search ---
+function applySearch(queryBuilder, searchTerm) {
+  if (!searchTerm) return queryBuilder;
+  
+  // Normalize digits (e.g. ۱۲۳ -> 123)
+  const normalizedTerm = toEnglishDigits(searchTerm);
+  
+  // Check if search term is numeric
+  const isNumeric = /^\d+$/.test(normalizedTerm);
+  
+  if (isNumeric) {
+    // If numeric, search in public_id (int) OR name (text)
+    // IMPORTANT: We use the normalized (English) digits for the ID search
+    return queryBuilder.or(`public_id.eq.${normalizedTerm},name.ilike.%${searchTerm}%`);
+  } else {
+    // If text (e.g. "ت"), ONLY search name. 
+    // NEVER search UUID columns with text to avoid "invalid input syntax for type uuid"
+    return queryBuilder.ilike('name', `%${searchTerm}%`);
+  }
+}
+
+// --- Status Logic ---
+async function fetchSystemStatus() {
+  try {
+    const { data, error } = await supabase
+      .from('system_status')
+      .select('updated_at')
+      .eq('id', 1)
+      .single();
+      
+    if (data) {
+      renderStatus(data.updated_at);
+    } else {
+      // If no record exists, show a default message
+      [els.statusDate, els.statusDateMobile].forEach(el => {
+        el.textContent = 'هنوز ثبت نشده';
+        el.className = 'status-date status-warning';
+      });
+    }
+  } catch (err) {
+    console.error('Error fetching status:', err);
+  }
+}
+
+async function updateSystemStatus() {
+  try {
+    const now = new Date().toISOString();
+    
+    // Use upsert to create the row if it doesn't exist (id: 1)
+    const { error } = await supabase
+      .from('system_status')
+      .upsert({ id: 1, updated_at: now });
+      
+    if (error) throw error;
+    
+    showToast('وضعیت سیستم بروزرسانی شد');
+    renderStatus(now);
+  } catch (err) {
+    console.error('Error updating status:', err);
+    showToast('خطا در بروزرسانی وضعیت');
+  }
+}
+
+function renderStatus(isoDate) {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffTime = now - date; // Difference in milliseconds
+  const diffDays = diffTime / (1000 * 60 * 60 * 24); 
+  
+  // Format: 1403/02/10 ساعت 12:30
+  const options = { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit',
+    calendar: 'persian'
+  };
+  
+  // Using 'fa-IR' locale for Persian date
+  const formatted = date.toLocaleDateString('fa-IR', options).replace(',', ' ساعت');
+  
+  // Color Logic
+  let colorClass = 'status-good'; // Default Green (< 3 days)
+  
+  if (diffDays > 6) {
+    colorClass = 'status-critical'; // Red (> 6 days)
+  } else if (diffDays > 3) {
+    colorClass = 'status-warning'; // Orange (3-6 days)
+  }
+  
+  // Update UI
+  [els.statusDate, els.statusDateMobile].forEach(el => {
+    el.textContent = formatted;
+    // Reset classes and add the new one
+    el.className = 'status-date';
+    el.classList.add(colorClass);
+  });
 }
 
 // --- Public Logic ---
@@ -179,7 +342,7 @@ async function fetchProducts() {
     .order('created_at', { ascending: false });
 
   if (state.searchQuery) {
-    query = query.or(`name.ilike.%${state.searchQuery}%,id.eq.${state.searchQuery}`);
+    query = applySearch(query, state.searchQuery);
   }
 
   const { data, error } = await query;
@@ -193,6 +356,8 @@ async function fetchProducts() {
     renderGrid(data);
     state.page++;
     els.empty.classList.toggle('hidden', state.products.length > 0);
+  } else {
+    console.error('Error fetching products:', error);
   }
   state.isLoading = false;
 }
@@ -211,9 +376,12 @@ function renderGrid(items) {
   items.forEach(p => {
     const div = document.createElement('div');
     div.className = 'product-card';
+    // Use public_id for display. Fallback to '...' if not yet generated
+    const displayId = p.public_id ? p.public_id : '...';
+    
     div.innerHTML = `
       <div class="card-image-wrapper" onclick="window.openProduct('${p.id}')">
-        <img src="${p.image_url}" loading="lazy" alt="${p.name}">
+        <img src="${p.image_url || 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/400x300?text=No+Image'}" loading="lazy" alt="${p.name}">
         <div class="card-overlay">
           <button class="btn btn-primary btn-icon"><i data-lucide="eye"></i></button>
         </div>
@@ -221,9 +389,9 @@ function renderGrid(items) {
       <div class="card-content">
         <h3 class="card-title">${p.name}</h3>
         <div class="card-footer">
-          <button class="copy-id-btn" onclick="window.copyId('${p.id}')">
+          <button class="copy-id-btn" onclick="window.copyId('${displayId}')">
             <i data-lucide="copy" style="width:14px"></i>
-            <span>کپی شناسه</span>
+            <span>کد: ${displayId}</span>
           </button>
         </div>
       </div>
@@ -238,21 +406,40 @@ function renderGrid(items) {
 window.openProduct = (id) => {
   const p = state.products.find(x => x.id === id);
   if (!p) return;
-  els.pmImg.src = p.image_url;
+  
+  // Set Image
+  els.pmImg.src = p.image_url || 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/400x300?text=No+Image';
+  
+  // Set Video
+  if (p.video_url) {
+    els.pmVideo.src = p.video_url;
+    els.pmVideoContainer.classList.remove('hidden');
+    
+    // Setup Download Video Button
+    els.pmDownloadVideo.href = p.video_url;
+    els.pmDownloadVideo.classList.remove('hidden');
+  } else {
+    els.pmVideo.pause();
+    els.pmVideo.src = "";
+    els.pmVideoContainer.classList.add('hidden');
+    els.pmDownloadVideo.href = "#";
+    els.pmDownloadVideo.classList.add('hidden');
+  }
+  
   els.pmTitle.textContent = p.name;
-  els.pmSku.textContent = p.id;
-  els.pmDownload.href = p.image_url;
+  // Show only public_id, fallback to empty if missing
+  els.pmSku.textContent = p.public_id || ''; 
+  els.pmDownload.href = p.image_url || '#';
   els.productModal.classList.remove('hidden');
 };
 
-// --- Robust Copy Function (Fixed) ---
+// --- Robust Copy Function ---
 window.copyId = (text) => {
-  if (!text) return;
+  if (!text || text === '...') return;
   
-  // Try Modern API first, but catch errors immediately
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text)
-      .then(() => showToast('شناسه محصول کپی شد'))
+      .then(() => showToast('کد محصول کپی شد'))
       .catch((err) => {
         console.warn('Clipboard API failed, using fallback', err);
         fallbackCopy(text);
@@ -267,7 +454,6 @@ function fallbackCopy(text) {
     const textArea = document.createElement("textarea");
     textArea.value = text;
     
-    // Ensure it's part of the DOM but invisible
     textArea.style.position = "fixed";
     textArea.style.left = "0";
     textArea.style.top = "0";
@@ -282,13 +468,13 @@ function fallbackCopy(text) {
     document.body.removeChild(textArea);
     
     if (successful) {
-      showToast('شناسه محصول کپی شد');
+      showToast('کد محصول کپی شد');
     } else {
       throw new Error('Copy failed');
     }
   } catch (err) {
     console.error('Fallback copy failed', err);
-    showToast('خطا: لطفاً شناسه را دستی کپی کنید');
+    showToast('خطا: لطفاً کد را دستی کپی کنید');
   }
 }
 
@@ -298,6 +484,8 @@ window.copyModalSku = () => {
 
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+  // Pause video when closing
+  if(els.pmVideo) els.pmVideo.pause();
 }
 
 function showToast(msg) {
@@ -310,9 +498,9 @@ function showToast(msg) {
 function openAdmin() {
   els.adminPanel.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-  if (state.adminProducts.length === 0) {
-    fetchAdminProducts();
-  }
+  resetAdminTable();
+  fetchAdminProducts();
+  fetchSystemStatus(); // Fetch status when opening admin
 }
 
 async function fetchAdminProducts() {
@@ -327,8 +515,7 @@ async function fetchAdminProducts() {
     .order('created_at', { ascending: false });
 
   if (state.adminSearchQuery) {
-    // Search by ID or Name
-    query = query.or(`name.ilike.%${state.adminSearchQuery}%,id.eq.${state.adminSearchQuery}`);
+    query = applySearch(query, state.adminSearchQuery);
   }
 
   const { data, error } = await query;
@@ -359,12 +546,19 @@ function renderAdminTable(items) {
   const html = items.map(p => `
     <tr>
       <td><input type="checkbox" class="row-check" value="${p.id}" onchange="window.toggleSelect('${p.id}', this.checked)"></td>
-      <td><img src="${p.image_url}" class="table-img"></td>
-      <td>${p.name}</td>
-      <td><span class="id-badge">${p.id}</span></td>
       <td>
-        <button class="btn btn-ghost btn-icon" style="width:32px;height:32px;" onclick="window.editItem('${p.id}')"><i data-lucide="edit-2" style="width:16px"></i></button>
-        <button class="btn btn-ghost btn-icon" style="width:32px;height:32px;color:var(--danger)" onclick="window.deleteItem('${p.id}')"><i data-lucide="trash" style="width:16px"></i></button>
+        <div style="display:flex; gap:4px;">
+          <img src="${p.image_url || 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/50?text=N/A'}" class="table-img">
+          ${p.video_url ? '<div style="width:10px; height:10px; background:var(--accent); border-radius:50%;"></div>' : ''}
+        </div>
+      </td>
+      <td>${p.name}</td>
+      <td><span class="id-badge">${p.public_id || '...'}</span></td>
+      <td>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-ghost btn-icon" style="width:32px;height:32px;" onclick="window.editItem('${p.id}')"><i data-lucide="edit-2" style="width:16px"></i></button>
+          <button class="btn btn-ghost btn-icon" style="width:32px;height:32px;color:var(--danger)" onclick="window.deleteItem('${p.id}')"><i data-lucide="trash" style="width:16px"></i></button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -378,6 +572,7 @@ async function handleSave(e) {
   if (state.isUploading) return;
   
   const file = els.prodFile.files[0];
+  const videoFile = els.prodVideo.files[0];
   const name = els.prodName.value;
   
   if (!state.editingId && !file) {
@@ -386,28 +581,56 @@ async function handleSave(e) {
 
   state.isUploading = true;
   els.saveBtn.disabled = true;
-  els.saveBtn.querySelector('.btn-text').textContent = 'در حال ذخیره...';
+  els.saveBtn.querySelector('.btn-text').textContent = 'در حال آپلود...';
 
   try {
     let imageUrl = els.filePreview.src;
+    let videoUrl = state.editingId ? (state.adminProducts.find(p => p.id === state.editingId)?.video_url || null) : null;
     
-    // Upload if new file
+    // Upload Image
     if (file) {
       const ext = file.name.split('.').pop();
-      const path = `${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file);
+      const fileName = `img-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      
+      const { error: upErr } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(fileName, file);
+        
       if (upErr) throw upErr;
       
-      const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      imageUrl = data.publicUrl;
+      const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(fileName);
+        
+      imageUrl = urlData.publicUrl;
     }
 
-    const payload = { name, image_url: imageUrl };
+    // Upload Video
+    if (videoFile) {
+      const ext = videoFile.name.split('.').pop();
+      const fileName = `vid-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      
+      const { error: upErr } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(fileName, videoFile);
+        
+      if (upErr) throw upErr;
+      
+      const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(fileName);
+        
+      videoUrl = urlData.publicUrl;
+    }
+
+    const payload = { name, image_url: imageUrl, video_url: videoUrl };
     
     if (state.editingId) {
-      await supabase.from('products').update(payload).eq('id', state.editingId);
+      const { error } = await supabase.from('products').update(payload).eq('id', state.editingId);
+      if (error) throw error;
     } else {
-      await supabase.from('products').insert([payload]);
+      const { error } = await supabase.from('products').insert([payload]);
+      if (error) throw error;
     }
 
     showToast('محصول با موفقیت ذخیره شد');
@@ -421,7 +644,7 @@ async function handleSave(e) {
     
   } catch (err) {
     console.error(err);
-    showToast('خطا در ذخیره سازی');
+    showToast('خطا در ذخیره سازی: ' + err.message);
   } finally {
     state.isUploading = false;
     els.saveBtn.disabled = false;
@@ -430,10 +653,8 @@ async function handleSave(e) {
 }
 
 window.editItem = async (id) => {
-  // Try to find in local state first
   let item = state.adminProducts.find(p => p.id === id);
   
-  // If not found (rare), fetch it
   if (!item) {
     const { data } = await supabase.from('products').select('*').eq('id', id).single();
     item = data;
@@ -442,8 +663,20 @@ window.editItem = async (id) => {
   if (item) {
     state.editingId = id;
     els.prodName.value = item.name;
+    
+    // Image Preview
     els.filePreview.src = item.image_url;
     els.filePreview.classList.remove('hidden');
+    
+    // Video Preview
+    if (item.video_url) {
+      els.videoPreview.src = item.video_url;
+      els.videoPreview.classList.remove('hidden');
+    } else {
+      els.videoPreview.src = '';
+      els.videoPreview.classList.add('hidden');
+    }
+    
     $('form-title').textContent = 'ویرایش محصول';
     els.formContainer.classList.remove('hidden');
     els.formContainer.scrollIntoView();
@@ -452,11 +685,17 @@ window.editItem = async (id) => {
 
 window.deleteItem = async (id) => {
   if (confirm('آیا از حذف این محصول اطمینان دارید؟')) {
-    await supabase.from('products').delete().eq('id', id);
-    resetAdminTable();
-    fetchAdminProducts();
-    resetGrid();
-    fetchProducts();
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      showToast('خطا در حذف محصول');
+      console.error(error);
+    } else {
+      showToast('محصول حذف شد');
+      resetAdminTable();
+      fetchAdminProducts();
+      resetGrid();
+      fetchProducts();
+    }
   }
 };
 
@@ -471,12 +710,20 @@ window.toggleSelect = (id, checked) => {
 
 async function deleteBulk() {
   if (confirm(`حذف ${state.selectedIds.size} محصول؟`)) {
-    await supabase.from('products').delete().in('id', Array.from(state.selectedIds));
-    state.selectedIds.clear();
-    resetAdminTable();
-    fetchAdminProducts();
-    resetGrid();
-    fetchProducts();
+    const { error } = await supabase.from('products').delete().in('id', Array.from(state.selectedIds));
+    
+    if (error) {
+      showToast('خطا در حذف گروهی');
+    } else {
+      showToast('محصولات انتخاب شده حذف شدند');
+      state.selectedIds.clear();
+      $('selected-count').textContent = '0';
+      $('bulk-delete-btn').classList.add('hidden');
+      resetAdminTable();
+      fetchAdminProducts();
+      resetGrid();
+      fetchProducts();
+    }
   }
 }
 
@@ -485,6 +732,8 @@ function resetForm() {
   state.editingId = null;
   els.filePreview.classList.add('hidden');
   els.filePreview.src = '';
+  els.videoPreview.classList.add('hidden');
+  els.videoPreview.src = '';
   $('form-title').textContent = 'افزودن محصول جدید';
 }
 
@@ -492,14 +741,15 @@ function setupInfiniteScroll() {
   const obs = new IntersectionObserver(entries => {
     if (entries[0].isIntersecting) fetchProducts();
   });
-  obs.observe(els.sentinel);
+  if (els.sentinel) obs.observe(els.sentinel);
 }
 
 function setupAdminInfiniteScroll() {
   const obs = new IntersectionObserver(entries => {
     if (entries[0].isIntersecting) fetchAdminProducts();
   }, { root: els.adminContent });
-  obs.observe(els.adminSentinel);
+  if (els.adminSentinel) obs.observe(els.adminSentinel);
 }
 
+// Start
 init();

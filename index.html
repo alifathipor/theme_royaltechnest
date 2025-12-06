@@ -25,7 +25,7 @@
         <div class="header-controls">
           <div class="search-wrapper">
             <i data-lucide="search" class="search-icon"></i>
-            <input type="text" id="search-input" class="search-input" placeholder="جستجو در محصولات..." />
+            <input type="text" id="search-input" class="search-input" placeholder="جستجو (نام یا کد)..." />
           </div>
           <button id="admin-btn" class="btn btn-icon" title="پنل مدیریت">
             <i data-lucide="user-cog"></i>
@@ -54,25 +54,39 @@
       <div class="modal-panel product-modal-panel">
         <button class="modal-close"><i data-lucide="x"></i></button>
         
-        <div class="pm-image">
-          <img id="pm-img" src="" alt="Product Preview" />
+        <div class="pm-media-column">
+          <div class="pm-image-container">
+            <img id="pm-img" src="" alt="Product Preview" />
+          </div>
+          <div id="pm-video-container" class="pm-video-container hidden">
+            <video id="pm-video" controls class="pm-video-player">
+              مرورگر شما از پخش ویدیو پشتیبانی نمی‌کند.
+            </video>
+          </div>
         </div>
         
         <div class="pm-details">
           <h2 id="pm-title" class="pm-title"></h2>
           
           <div class="pm-sku-box" onclick="window.copyModalSku()">
-            <span class="pm-sku-label">شناسه محصول (جهت سفارش):</span>
+            <span class="pm-sku-label">کد محصول (جهت سفارش):</span>
             <div class="pm-sku-code">
               <span id="pm-sku"></span>
               <i data-lucide="copy" size="16"></i>
             </div>
           </div>
           
-          <a id="pm-download" href="#" target="_blank" class="btn btn-primary btn-glow" style="width: 100%; padding: 1rem; font-size: 1.1rem;">
-            <i data-lucide="download-cloud"></i>
-            دانلود فایل اصلی
-          </a>
+          <div class="pm-actions">
+            <a id="pm-download" href="#" target="_blank" class="btn btn-primary btn-glow download-btn">
+              <i data-lucide="download-cloud"></i>
+              دانلود تصویر اصلی
+            </a>
+            
+            <a id="pm-download-video" href="#" target="_blank" class="btn btn-secondary download-btn hidden">
+              <i data-lucide="film"></i>
+              دانلود ویدیو پیش‌نمایش
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -122,6 +136,17 @@
             <i data-lucide="box"></i>
             محصولات
           </a>
+          
+          <!-- Status Widget in Sidebar for Desktop -->
+          <div class="status-widget desktop-only">
+             <div class="status-header">وضعیت بروزرسانی</div>
+             <div id="status-date" class="status-date">...</div>
+             <button id="update-status-btn" class="btn btn-sm btn-outline-primary" style="width:100%; margin-top:0.5rem;">
+               <i data-lucide="refresh-cw" style="width:14px;"></i>
+               بروزرسانی
+             </button>
+          </div>
+
           <button id="logout-btn" class="menu-item logout">
             <i data-lucide="log-out"></i>
             خروج از حساب
@@ -135,11 +160,25 @@
             <h2>مدیریت محصولات</h2>
           </div>
           
+          <!-- Mobile Status Widget -->
+          <div class="status-widget mobile-only" style="margin-bottom: 1rem; width: 100%;">
+             <div style="display:flex; justify-content:space-between; align-items:center;">
+               <div style="display:flex; flex-direction:column;">
+                 <span class="status-header">آخرین بروزرسانی:</span>
+                 <span id="status-date-mobile" class="status-date">...</span>
+               </div>
+               <button id="update-status-btn-mobile" class="btn btn-sm btn-outline-primary">
+                 <i data-lucide="refresh-cw" style="width:14px;"></i>
+                 بروزرسانی
+               </button>
+             </div>
+          </div>
+          
           <div class="admin-actions">
             <!-- Admin Search -->
             <div class="search-wrapper admin-search">
               <i data-lucide="search" class="search-icon"></i>
-              <input type="text" id="admin-search-input" class="search-input" placeholder="جستجو با نام یا شناسه..." />
+              <input type="text" id="admin-search-input" class="search-input" placeholder="جستجو (نام یا کد)..." />
             </div>
 
             <button id="bulk-delete-btn" class="btn btn-danger hidden">
@@ -166,14 +205,30 @@
                 <input type="text" id="prod-name" class="form-input" placeholder="مثلاً: تم لست آف آس 2" required />
               </div>
               
-              <div class="upload-zone">
-                <input type="file" id="prod-file" accept="image/*" />
-                <div style="pointer-events: none;">
-                  <i data-lucide="image-plus" size="48" style="color: var(--primary); opacity: 0.8; margin-bottom: 1rem;"></i>
-                  <p style="font-weight: 600;">برای آپلود عکس کلیک کنید</p>
-                  <p style="font-size: 0.8rem; color: var(--text-muted);">یا عکس را اینجا رها کنید</p>
+              <!-- Image Upload -->
+              <div class="form-input-group">
+                <label style="display:block; margin-bottom:0.5rem; font-weight:600;">تصویر محصول</label>
+                <div class="upload-zone">
+                  <input type="file" id="prod-file" accept="image/*" />
+                  <div style="pointer-events: none;">
+                    <i data-lucide="image-plus" size="48" style="color: var(--primary); opacity: 0.8; margin-bottom: 1rem;"></i>
+                    <p style="font-weight: 600;">برای آپلود عکس کلیک کنید</p>
+                  </div>
+                  <img id="file-preview" class="upload-preview hidden" />
                 </div>
-                <img id="file-preview" class="upload-preview hidden" />
+              </div>
+
+              <!-- Video Upload -->
+              <div class="form-input-group">
+                <label style="display:block; margin-bottom:0.5rem; font-weight:600;">ویدیو محصول (اختیاری)</label>
+                <div class="upload-zone video-zone">
+                  <input type="file" id="prod-video" accept="video/*" />
+                  <div style="pointer-events: none;">
+                    <i data-lucide="video" size="48" style="color: var(--accent); opacity: 0.8; margin-bottom: 1rem;"></i>
+                    <p style="font-weight: 600;">برای آپلود ویدیو کلیک کنید</p>
+                  </div>
+                  <video id="video-preview" class="upload-preview hidden" controls></video>
+                </div>
               </div>
               
               <div style="margin-top: 2rem; text-align: left;">
@@ -192,9 +247,9 @@
             <thead>
               <tr>
                 <th width="50"><input type="checkbox" id="select-all" /></th>
-                <th width="80">تصویر</th>
-                <th>نام محصول</th>
-                <th>شناسه سیستم (ID)</th>
+                <th width="80">مدیا</th>
+                <th style="min-width: 150px;">نام محصول</th>
+                <th style="min-width: 100px;">کد محصول</th>
                 <th width="120">عملیات</th>
               </tr>
             </thead>
